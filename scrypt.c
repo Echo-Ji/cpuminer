@@ -417,6 +417,12 @@ void scrypt_core(uint32_t *X, uint32_t *V, int N);
 
 #else
 
+/* [hotspot]
+ * It is hard to parallel for the second loop 
+ * depend on  the value  of the first loop in 
+ * each iteration.
+ * */
+
 static inline void xor_salsa8(uint32_t B[16], const uint32_t Bx[16])
 {
 	uint32_t x00,x01,x02,x03,x04,x05,x06,x07,x08,x09,x10,x11,x12,x13,x14,x15;
@@ -485,17 +491,33 @@ static inline void xor_salsa8(uint32_t B[16], const uint32_t Bx[16])
 	B[15] += x15;
 }
 
+/*
+ *1. X = B
+ *2. for i = 0 to N - 1 do
+ *       V[i] = X                        //备份一个X，X是一个（128 * r）个字节的数据
+ *       X = scryptBlockMix(X)    //scryptBlockMix算法
+ *   end for                  
+ *3.for i = 0 to N - 1 do          
+ *      j = Integerify(X) mod N   //
+ *  这里 Integerify (B[0] ... B[2 * r - 1])  定义为  将 B[2 * r - 1] 转换为小端整数。在ltc算法中，因为r = 1，推出X = {B[0], B[1]}，那么Integerify(X)就是把B[1]（后64字节转换成小端）
+ *      T = X xor V[j]
+ *      X = scryptBlockMix(T)    
+ *  end for
+ *4.B' = X
+ *
+ * */
+
 static inline void scrypt_core(uint32_t *X, uint32_t *V, int N)
 {
 	uint32_t i, j, k;
 	
-	for (i = 0; i < N; i++) {
-		memcpy(&V[i * 32], X, 128);
-		xor_salsa8(&X[0], &X[16]);
-		xor_salsa8(&X[16], &X[0]);
+	for (i = 0; i < N; i++) {           /*N = 1024*/
+		memcpy(&V[i * 32], X, 128);     /*128-BYTE*/
+		xor_salsa8(&X[0], &X[16]);      /*B[0]=X[0]-X[15], 64-BYTE*/
+		xor_salsa8(&X[16], &X[0]);      /*B[1]=X[16]-X[31], 64-BYTE*/
 	}
 	for (i = 0; i < N; i++) {
-		j = 32 * (X[16] & (N - 1));
+		j = 32 * (X[16] & (N - 1));     /*BYTE index changed to WORD index*/
 		for (k = 0; k < 32; k++)
 			X[k] ^= V[j + k];
 		xor_salsa8(&X[0], &X[16]);
@@ -515,6 +537,16 @@ unsigned char *scrypt_buffer_alloc(int N)
 	return malloc((size_t)N * SCRYPT_MAX_WAYS * 128 + 63);
 }
 
+/*
+ * 1. B[0] || B[1] || ... || B[p - 1] = PBKDF2-HMAC-SHA256 (P, S, 1, p * 128 * r)       //
+ *      Initialize an array B consisting of p blocks of 128 * r octet each(p = 1 in scrypt)
+ * 2. for i = 0 to p - 1 do
+ *        B[i] = scryptROMix (r, B[i], N)   //scrypt_core here
+ *    end for
+ * 3. DK = PBKDF2-HMAC-SHA256 (P, B[0] || B[1] || ... || B[p - 1], 1, dkLen)
+ *
+ * */
+
 static void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
 	uint32_t *midstate, unsigned char *scratchpad, int N)
 {
@@ -525,8 +557,8 @@ static void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 
 	memcpy(tstate, midstate, 32);
-	HMAC_SHA256_80_init(input, tstate, ostate);
-	PBKDF2_SHA256_80_128(tstate, ostate, input, X);
+	HMAC_SHA256_80_init(input, tstate, ostate);     /*用SHA256哈希函数计算基于哈希的消息校验码*/
+	PBKDF2_SHA256_80_128(tstate, ostate, input, X); /*表示PBKDF2算法以HMAC-SHA-256算法为PRF*/
 
 	scrypt_core(X, V, N);
 

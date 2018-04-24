@@ -297,6 +297,14 @@ static inline void work_copy(struct work *dest, const struct work *src)
 	}
 }
 
+static void gt(const char *name){
+    applog(LOG_INFO,"I am going into %s...", name);
+}
+
+static void dp(const char *name){
+    applog(LOG_INFO,"I am leaving out of  %s...", name);
+}
+
 static bool jobj_binary(const json_t *obj, const char *key,
 			void *buf, size_t buflen)
 {
@@ -1113,7 +1121,7 @@ static void *miner_thread(void *userdata)
 	unsigned char *scratchbuf = NULL;
 	char s[16];
 	int i;
-
+    gt(__FUNCTION__);
 	/* Set worker threads to nice 19 and then preferentially to SCHED_IDLE
 	 * and if that fails, then SCHED_BATCH. No need for this to be an
 	 * error if it fails */
@@ -1126,7 +1134,7 @@ static void *miner_thread(void *userdata)
 	 * of the number of CPUs */
 	if (num_processors > 1 && opt_n_threads % num_processors == 0) {
 		if (!opt_quiet)
-			applog(LOG_INFO, "Binding thread %d to cpu %d",
+			applog(LOG_INFO, "mmmmBinding thread %d to cpu %d",
 			       thr_id, thr_id % num_processors);
 		affine_to_cpu(thr_id, thr_id % num_processors);
 	}
@@ -1256,7 +1264,7 @@ static void *miner_thread(void *userdata)
 
 out:
 	tq_freeze(mythr->q);
-
+    dp(__FUNCTION__);
 	return NULL;
 }
 
@@ -1539,8 +1547,9 @@ static void parse_arg(int key, char *arg, char *pname)
 {
 	char *p;
 	int v, i;
-
-	switch(key) {
+    //applog(LOG_INFO, "I am in FUNC parse_arg...");
+	gt(__FUNCTION__);
+    switch(key) {
 	case 'a':
 		for (i = 0; i < ARRAY_SIZE(algo_names); i++) {
 			v = strlen(algo_names[i]);
@@ -1722,6 +1731,7 @@ static void parse_arg(int key, char *arg, char *pname)
 		opt_cert = strdup(arg);
 		break;
 	case 1005:
+        applog(LOG_INFO,"&&&&&&&&&&&&&&&&&&&&&&&I am in 1005&&&&&&&&&&&&&&&&&&&&&&");
 		opt_benchmark = true;
 		want_longpoll = false;
 		want_stratum = false;
@@ -1767,6 +1777,7 @@ static void parse_arg(int key, char *arg, char *pname)
 	default:
 		show_usage_and_exit(1);
 	}
+    dp(__FUNCTION__);
 }
 
 static void parse_config(json_t *config, char *pname, char *ref)
@@ -1774,7 +1785,7 @@ static void parse_config(json_t *config, char *pname, char *ref)
 	int i;
 	char *s;
 	json_t *val;
-
+    gt(__FUNCTION__);
 	for (i = 0; i < ARRAY_SIZE(options); i++) {
 		if (!options[i].name)
 			break;
@@ -1802,12 +1813,14 @@ static void parse_config(json_t *config, char *pname, char *ref)
 			exit(1);
 		}
 	}
+    dp(__FUNCTION__);
 }
 
 static void parse_cmdline(int argc, char *argv[])
 {
 	int key;
-
+    gt(__FUNCTION__);
+    //applog(LOG_INFO,"I am go into " __FUNCTION__);
 	while (1) {
 #if HAVE_GETOPT_LONG
 		key = getopt_long(argc, argv, short_options, options, NULL);
@@ -1824,7 +1837,9 @@ static void parse_cmdline(int argc, char *argv[])
 			argv[0], argv[optind]);
 		show_usage_and_exit(1);
 	}
-}
+    dp(__FUNCTION__);
+    //applog(LOG_INFO, "I am going out parse_cmdline...");
+}    
 
 #ifndef WIN32
 static void signal_handler(int sig)
@@ -1850,8 +1865,10 @@ int main(int argc, char *argv[])
 	struct thr_info *thr;
 	long flags;
 	int i;
-
-	rpc_user = strdup("");
+    //printf("Let us start\n");
+    //applog(LOG_INFO, "LET US STARTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
+    gt(__FUNCTION__);
+    rpc_user = strdup("");
 	rpc_pass = strdup("");
 
 	/* parse command line */
@@ -1999,15 +2016,20 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	applog(LOG_INFO, "%d miner threads started, "
+/*	applog(LOG_INFO, "%d miner threads started, "
 		"using '%s' algorithm.",
 		opt_n_threads,
+		algo_names[opt_algo]);*/
+	applog(LOG_INFO, "%d miner threads started at thread %d with want flag %d, "
+		"using '%s' algorithm.",
+		opt_n_threads, thr->id, want_stratum,
 		algo_names[opt_algo]);
+
 
 	/* main loop - simply wait for workio thread to exit */
 	pthread_join(thr_info[work_thr_id].pth, NULL);
 
 	applog(LOG_INFO, "workio thread dead, exiting.");
-
+    
 	return 0;
 }

@@ -14,7 +14,8 @@ OUT=result/litegm-$(date +%Y%m%d-%H%M%S).out
 #--time-limit=600
 
 # 1.491 MH/s
-./minerd --algo=scrypt -t 28 -o stratum+tcp://stratum.f2pool.com:8888 -O "echoin.003:echo_f2pool97;" 
+#./minerd --algo=scrypt -t 44 -o stratum+tcp://stratum.f2pool.com:8888 -O "echoin.003:echo_f2pool97;" 
+./minerd --benchmark
 
 # 1.480 MH/s
 #./minerd -l T56x12 -C 2 -H 1 -o stratum+tcp://stratum.f2pool.com:8888 -O "echoin.001:echo_f2pool97;" 
